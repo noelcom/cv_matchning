@@ -10,7 +10,7 @@ from google.genai import types
 st.set_page_config(page_title="HR-AI: CV-Matchning", page_icon="🚀", layout="wide")
 st.title("🚀 HR-AI: Anonym CV-Matchning")
 
-# 2. Hantera API-nyckel i sidopanelen (Smart "Bring Your Own Key"-lösning)
+# 2. Hantera API-nyckel i sidopanelen
 with st.sidebar:
     st.header("⚙️ Inställningar")
     api_key = st.text_input("Klistra in din Google Gemini API-nyckel", type="password")
@@ -45,37 +45,38 @@ with tab1:
             with st.spinner("Analyserar kandidater med AI... Detta kan ta en liten stund."):
                 client = genai.Client(api_key=api_key)
                 
-                # Din sylvassa systeminstruktion
+                # Den stenhårda och universella systeminstruktionen
                 instruktion = """
-                Du är en objektiv, extremt analytisk och fördomsfri AI-rekryterare. Ditt uppdrag är att revolutionera rekryteringsprocessen genom att helt kringgå traditionella, byråkratiska ATS-system som bara räknar nyckelord. Du letar efter *verklig* kompetens, potential och relevant erfarenhet.
+                Du är en objektiv, extremt analytisk och fördomsfri AI-rekryterare. Ditt uppdrag är att revolutionera rekryteringsprocessen genom att leta efter *verklig* kompetens och relevant erfarenhet. Du är dock STENHÅRD och realistisk i din bedömning av ansvarsnivå och senioritet.
 
-                DITT TILLVÄGAGÅNGSSÄTT (COMMON SENSE OCH HELHETSSYN):
-                1. Läs mellan raderna: Stirra dig inte blind på specifika buzzwords. Om en kandidat beskriver att de "byggt och driftsatt ett komplett ordersystem", ska du använda din branschkunskap för att förstå vilka tekniker och kompetenser som krävdes för det, även om kandidaten glömt skriva ut exakta nyckelord.
-                2. Format-agnostisk (Objektivitet): Du ska helt ignorera CV:ts design, grammatik och layout. Ett rörigt, oformaterat textdokument med fantastisk erfarenhet ska få EXAKT samma bedömning som ett hyperoptimerat design-CV med samma innehåll. Döm endast den faktiska datan.
-                3. Översättbara färdigheter (Transferable skills): Värdera praktisk problemlösning, verkliga resultat och förmågan att lära sig över stela jobbtitlar.
+                DITT TILLVÄGAGÅNGSSÄTT:
+                1. Analysera ansvarsnivå: Stirra dig inte blind på att en bransch matchar. Om annonsen söker en ledare, chef eller specialist, och kandidaten enbart har praktik, assistentroller eller instegsjobb, ska poängen dras ner kraftigt.
+                2. Format-agnostisk: Ignorera CV:ts design och döm endast den faktiska datan.
+                3. Översättbara färdigheter: Värdera praktisk problemlösning, men respektera de hårda kraven.
 
-                STRIKT GDPR OCH ANONYMITET (KRITISKT KRAV):
-                För att garantera en 100% fördomsfri och laglig process får du under INGA omständigheter extrahera, nämna eller hinta om följande i ditt svar:
-                - Namn, e-post, telefonnummer, adresser eller postorter.
-                - Ålder, födelsedatum, kön, könsidentitet eller pronomen (använd neutrala omskrivningar om du måste).
-                - Nationalitet, etniskt ursprung, modersmål eller civilstånd.
-                - Bilder, länkar till LinkedIn, GitHub eller hemsidor som kan identifiera personen.
+                STRIKT GDPR OCH ANONYMITET:
+                För att garantera en 100% fördomsfri process får du under INGA omständigheter extrahera eller hinta om:
+                - Namn, e-post, telefonnummer, adresser, ålder, kön, nationalitet eller länkar.
                 Kandidaten existerar för dig enbart som en renodlad kompetensprofil.
 
-                BEDÖMNING OCH SCORING (0-100):
-                Jämför kandidatens bevisade erfarenheter mot den bifogade arbetsannonsens krav. Sätt en rättvis poäng. Ge inte automatiskt höga poäng bara för att kandidaten "nämner" ett ord från annonsen, utan kräv kontext att de faktiskt har *använt* kompetensen. En poäng över 80 ska innebära att kandidaten bevisligen kan klara av arbetsuppgifterna från dag ett.
+                BEDÖMNING OCH SCORING (0-100) - STRIKTA REGLER:
+                Du är en extremt kritisk bedömare. Du MÅSTE följa denna skala:
+                - 0-30: Långt ifrån kraven. Saknar avgörande erfarenhet (t.ex. en junior/praktikant som söker en ledarroll).
+                - 31-50: Uppfyller vissa grundkrav, men saknar rätt ansvarsnivå eller spetskompetens.
+                - 51-75: En stark kandidat som uppfyller de flesta krav och kan axla rollen med viss upplärning.
+                - 76-90: En extremt kvalificerad kandidat som överträffar kraven, har bevisad erfarenhet av exakt rätt ansvarsnivå och kan prestera från dag ett.
+                - 91-100: En perfekt, exceptionell matchning (väldigt ovanligt).
                 """
                 
-                # ---> DE TRE VIKTIGA RADERNA FINNS NU HÄR <---
                 temp_dir = tempfile.mkdtemp()
                 st.session_state.leaderboard = [] 
                 st.session_state.kandidat_db = {}
                 
                 for nummer, fil in enumerate(uppladdade_filer, 1):
-                    # 1. FIX FÖR ANONYMITET: Döljer filnamnet i gränssnittet
+                    # 1. Döljer filnamnet i gränssnittet
                     anonymt_id = f"Kandidat #{nummer}"
                     
-                    # 2. FIX FÖR Å/Ä/Ö: Ger filen ett säkert namn i bakgrunden
+                    # 2. Ger filen ett säkert namn i bakgrunden för att undvika kraschar (åäö)
                     safe_filename = f"cv_dokument_{nummer}.pdf"
                     temp_path = os.path.join(temp_dir, safe_filename)
                     
@@ -94,13 +95,14 @@ with tab1:
                                     "type": "OBJECT",
                                     "properties": {
                                         "score": {"type": "INTEGER"},
-                                        "motivation": {"type": "STRING"},
-                                        "nyckelkompetenser": {"type": "STRING"},
-                                        "profil": {"type": "STRING"},
-                                        "utbildning": {"type": "STRING"},
-                                        "erfarenhetsniva": {"type": "STRING"}
+                                        "ar_erfarenhet": {"type": "INTEGER", "description": "Antal års relevant erfarenhet för rollen"},
+                                        "utbildningsmatch": {"type": "STRING", "description": "Matchar utbildningen annonsens krav?"},
+                                        "konkreta_resultat": {"type": "STRING", "description": "Vilka konkreta resultat eller projekt har kandidaten levererat?"},
+                                        "nyckelkompetenser": {"type": "STRING", "description": "Hårda färdigheter, mjukvaror och språk"},
+                                        "saknade_krav": {"type": "STRING", "description": "Vad saknar kandidaten baserat på annonsen? Var ärlig."},
+                                        "motivation": {"type": "STRING", "description": "Kort och rak motivering till poängen"}
                                     },
-                                    "required": ["score", "motivation", "nyckelkompetenser", "profil", "utbildning", "erfarenhetsniva"]
+                                    "required": ["score", "ar_erfarenhet", "utbildningsmatch", "konkreta_resultat", "nyckelkompetenser", "saknade_krav", "motivation"]
                                 }
                             )
                         )
@@ -118,7 +120,7 @@ with tab1:
                     df = pd.DataFrame(st.session_state.leaderboard)
                     df = df.sort_values(by="Poäng", ascending=False).reset_index(drop=True)
                     df.index += 1
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df[["Kandidat", "Poäng"]], use_container_width=True)
 
 # --- FLIK 2: LEADERBOARD OCH DETALJER ---
 with tab2:
@@ -144,15 +146,18 @@ with tab2:
                 st.subheader(f"Analys för {vald_kandidat}")
                 st.metric(label="AI Matchningspoäng", value=f"{data['score']} / 100")
                 
-                st.markdown("#### 🔑 Nyckelkompetenser")
+                st.markdown("#### 📊 Erfarenhet & Utbildning")
+                st.write(f"**Relevanta år i branschen:** {data['ar_erfarenhet']} år")
+                st.write(f"**Utbildning:** {data['utbildningsmatch']}")
+                
+                st.markdown("#### 🚀 Konkreta resultat & Projekt")
+                st.write(data['konkreta_resultat'])
+                
+                st.markdown("#### 🔑 Nyckelkompetenser & Språk")
                 st.write(data['nyckelkompetenser'])
                 
-                st.markdown("#### 💼 Erfarenhet & Utbildning")
-                st.write(f"**Nivå:** {data['erfarenhetsniva']}")
-                st.write(f"**Utbildning:** {data['utbildning']}")
-                
-                st.markdown("#### 📝 Sammanfattning av Profil")
-                st.write(data['profil'])
+                st.markdown("#### ⚠️ Saknade krav (Gaps)")
+                st.warning(data['saknade_krav'])
                 
                 st.markdown("#### 💡 AI:ns Motivering")
                 st.info(data['motivation'])
