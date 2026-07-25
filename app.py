@@ -66,15 +66,14 @@ with tab1:
                 Jämför kandidatens bevisade erfarenheter mot den bifogade arbetsannonsens krav. Sätt en rättvis poäng. Ge inte automatiskt höga poäng bara för att kandidaten "nämner" ett ord från annonsen, utan kräv kontext att de faktiskt har *använt* kompetensen. En poäng över 80 ska innebära att kandidaten bevisligen kan klara av arbetsuppgifterna från dag ett.
                 """
                 
-                temp_dir = tempfile.mkdtemp()
-                st.session_state.leaderboard = [] # Nollställ för ny körning
-                st.session_state.kandidat_db = {}
-                
                 for nummer, fil in enumerate(uppladdade_filer, 1):
-                    anonymt_id = f"Kandidat #{nummer} ({fil.name})"
+                    # 1. FIX FÖR ANONYMITET: Döljer filnamnet i gränssnittet
+                    anonymt_id = f"Kandidat #{nummer}"
                     
-                    # Spara filen temporärt så AI:n kan läsa den
-                    temp_path = os.path.join(temp_dir, fil.name)
+                    # 2. FIX FÖR Å/Ä/Ö: Ger filen ett säkert ASCII-namn i bakgrunden
+                    säkert_filnamn = f"cv_dokument_{nummer}.pdf"
+                    temp_path = os.path.join(temp_dir, säkert_filnamn)
+                    
                     with open(temp_path, "wb") as f:
                         f.write(fil.getbuffer())
                     
