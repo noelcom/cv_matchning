@@ -8,7 +8,7 @@ from google.genai import types
 
 # 1. Design och inställningar för webbsidan
 st.set_page_config(page_title="HR-AI: CV-Matchning", page_icon="🚀", layout="wide")
-st.title("🚀 HR-AI: Anonym CV-Matchning")
+st.title("🚀 Anonym CV-Matchning")
 
 # 2. Hantera API-nyckel i sidopanelen
 with st.sidebar:
