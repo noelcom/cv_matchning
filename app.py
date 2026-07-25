@@ -67,12 +67,12 @@ with tab1:
                 """
                 
                 for nummer, fil in enumerate(uppladdade_filer, 1):
-                    # 1. FIX FÖR ANONYMITET: Döljer filnamnet i gränssnittet
+                    # 1. Döljer namnet i gränssnittet
                     anonymt_id = f"Kandidat #{nummer}"
                     
-                    # 2. FIX FÖR Å/Ä/Ö: Ger filen ett säkert ASCII-namn i bakgrunden
-                    säkert_filnamn = f"cv_dokument_{nummer}.pdf"
-                    temp_path = os.path.join(temp_dir, säkert_filnamn)
+                    # 2. Skapar ett säkert filnamn (ändrat till engelskt variabelnamn)
+                    safe_filename = f"cv_dokument_{nummer}.pdf"
+                    temp_path = os.path.join(temp_dir, safe_filename)
                     
                     with open(temp_path, "wb") as f:
                         f.write(fil.getbuffer())
