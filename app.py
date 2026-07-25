@@ -66,11 +66,16 @@ with tab1:
                 Jämför kandidatens bevisade erfarenheter mot den bifogade arbetsannonsens krav. Sätt en rättvis poäng. Ge inte automatiskt höga poäng bara för att kandidaten "nämner" ett ord från annonsen, utan kräv kontext att de faktiskt har *använt* kompetensen. En poäng över 80 ska innebära att kandidaten bevisligen kan klara av arbetsuppgifterna från dag ett.
                 """
                 
+                # ---> DE TRE VIKTIGA RADERNA FINNS NU HÄR <---
+                temp_dir = tempfile.mkdtemp()
+                st.session_state.leaderboard = [] 
+                st.session_state.kandidat_db = {}
+                
                 for nummer, fil in enumerate(uppladdade_filer, 1):
-                    # 1. Döljer namnet i gränssnittet
+                    # 1. FIX FÖR ANONYMITET: Döljer filnamnet i gränssnittet
                     anonymt_id = f"Kandidat #{nummer}"
                     
-                    # 2. Skapar ett säkert filnamn (ändrat till engelskt variabelnamn)
+                    # 2. FIX FÖR Å/Ä/Ö: Ger filen ett säkert namn i bakgrunden
                     safe_filename = f"cv_dokument_{nummer}.pdf"
                     temp_path = os.path.join(temp_dir, safe_filename)
                     
@@ -106,7 +111,7 @@ with tab1:
                         st.session_state.leaderboard.append({"Kandidat": anonymt_id, "Poäng": resultat["score"], "Nyckelkompetenser": resultat["nyckelkompetenser"]})
                         
                     except Exception as e:
-                        st.error(f"Ett fel uppstod med {fil.name}. Felmeddelande: {e}")
+                        st.error(f"Ett fel uppstod med Kandidat #{nummer}. Felmeddelande: {e}")
                 
                 if st.session_state.leaderboard:
                     st.success("✅ Analys klar! Byt till fliken 'Detaljer & Resultat' ovan för att se vinnarna.")
