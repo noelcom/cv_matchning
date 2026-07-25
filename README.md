@@ -1,5 +1,7 @@
 # 🚀 Anonymous CV Matching
 
+**(Note: The current iteration of the application UI is in Swedish)**
+
 A smart and unbiased recruitment tool built with Python and Google Gemini AI. The system analyzes candidates' resumes against a specific job description, completely ignoring names, gender, age, or background.
 
 🔴 **[Try the app live here!](https://cvmatchning.streamlit.app/)**
