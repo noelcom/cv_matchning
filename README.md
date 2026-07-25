@@ -1,4 +1,4 @@
-# 🚀 HR-AI: Anonym CV-Matchning
+# 🚀 Anonym CV-Matchning
 
 Ett smart och fördomsfritt rekryteringsverktyg byggt med Python och Google Gemini AI. Systemet analyserar kandidaters CV:n mot en specifik arbetsannons, helt utan att ta hänsyn till namn, kön, ålder eller bakgrund.
 
