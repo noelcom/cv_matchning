@@ -109,6 +109,11 @@ with tab1:
                         
                         resultat = json.loads(svar.text)
                         
+                        # --- NYTT: Sparar originalfilen för senare nedladdning ---
+                        resultat["original_namn"] = fil.name
+                        resultat["fil_data"] = fil.getvalue() 
+                        # --------------------------------------------------------
+                        
                         st.session_state.kandidat_db[anonymt_id] = resultat
                         st.session_state.leaderboard.append({"Kandidat": anonymt_id, "Poäng": resultat["score"], "Nyckelkompetenser": resultat["nyckelkompetenser"]})
                         
@@ -161,3 +166,15 @@ with tab2:
                 
                 st.markdown("#### 💡 AI:ns Motivering")
                 st.info(data['motivation'])
+                
+                # --- NYTT: Knapp för att bryta anonymiteten ---
+                st.divider()
+                st.markdown("#### 🔓 Avslöja & Kontakta")
+                st.write("När du är redo att gå vidare med kandidaten kan du ladda ner originaldokumentet här.")
+                st.download_button(
+                    label=f"📥 Ladda ner original-CV",
+                    data=data['fil_data'],
+                    file_name=data['original_namn'],
+                    mime="application/pdf",
+                    type="primary"
+                )
