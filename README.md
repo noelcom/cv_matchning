@@ -1,19 +1,19 @@
-# 🚀 Anonym CV-Matchning
+# 🚀 Anonymous CV Matching
 
-Ett smart och fördomsfritt rekryteringsverktyg byggt med Python och Google Gemini AI. Systemet analyserar kandidaters CV:n mot en specifik arbetsannons, helt utan att ta hänsyn till namn, kön, ålder eller bakgrund.
+A smart and unbiased recruitment tool built with Python and Google Gemini AI. The system analyzes candidates' resumes against a specific job description, completely ignoring names, gender, age, or background.
 
-🔴 **[Testa appen live här!](https://cvmatchning.streamlit.app/)**
+🔴 **[Try the app live here!](https://cvmatchning.streamlit.app/)**
 
-## ✨ Funktioner
-* **100 % Anonymitet:** Döljer automatiskt namn och filnamn i gränssnittet för att garantera en objektiv bedömning.
-* **Djupgående Analys:** Stirrar sig inte blind på nyckelord, utan analyserar faktisk ansvarsnivå, konkreta resultat och identifierar saknade krav (gaps).
-* **"Bring Your Own Key":** För maximal datasäkerhet anger användaren sin egen Gemini API-nyckel för att köra analysen. Inga CV:n sparas permanent på någon server.
-* **Avslöja Kandidat:** När rätt kompetensprofil är hittad kan rekryteraren ladda ner original-PDF:en för att ta kontakt.
+## ✨ Features
+* **100% Anonymity:** Automatically hides names and filenames in the user interface to guarantee an objective assessment.
+* **In-Depth Analysis:** Goes beyond simple keyword matching to evaluate actual levels of responsibility, concrete achievements, and identify missing requirements (gaps).
+* **"Bring Your Own Key":** For maximum data privacy, the user provides their own Gemini API key to run the analysis. No resumes are permanently stored on any server.
+* **Reveal Candidate:** Once the right competency profile is identified, the recruiter can download the original PDF to reach out and make contact.
 
-## 🛠️ Teknikstack
+## 🛠️ Tech Stack
 * **Frontend/Backend:** Streamlit (Python)
-* **AI-Motor:** Google Gemini 2.5 Flash
-* **Datahantering:** Pandas, JSON
+* **AI Engine:** Google Gemini 2.5 Flash
+* **Data Handling:** Pandas, JSON
 
-## 💡 Om projektet
-Detta är en MVP utvecklad för att utmana traditionella ATS-system. Målet är att fokusera på *verklig kompetens* och översättbara färdigheter, snarare än att bara räkna buzzwords.
+## 💡 About the Project
+This is an MVP developed to challenge traditional ATS (Applicant Tracking Systems). The goal is to focus on *actual competence* and transferable skills, rather than simply counting corporate buzzwords.
