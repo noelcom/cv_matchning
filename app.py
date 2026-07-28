@@ -33,6 +33,7 @@ with tab1:
         annons_text = st.text_area("Arbetsannons", height=250, placeholder="Klistra in texten från platsannonsen här...")
     with col2:
         uppladdade_filer = st.file_uploader("Ladda upp CV:n (.pdf)", type=["pdf"], accept_multiple_files=True)
+        st.caption("🔒 **Datasäkerhet & GDPR:** Detta är en MVP. Inga CV-filer sparas permanent på någon server – allt bearbetas enbart i stunden i tillfälligt minne. Datan skickas krypterat via API för analys. Använd gärna anonymiserade test-CV:n.")
         
     if st.button("🧠 Starta AI-Analys", type="primary"):
         if not api_key:
