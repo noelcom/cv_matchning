@@ -3,6 +3,8 @@ import pandas as pd
 import json
 import os
 import tempfile
+import shutil
+import time
 from google import genai
 from google.genai import types
 
@@ -16,7 +18,7 @@ with st.sidebar:
     api_key = st.text_input("Klistra in din Google Gemini API-nyckel", type="password")
     st.info("Nyckeln sparas inte när du stänger sidan. Det gör att appen kan delas utan att kosta dig pengar!")
 
-# 3. Databas i minnet (Ersätter Google Drive för att funka snabbt på webben)
+# 3. Databas i minnet
 if 'kandidat_db' not in st.session_state:
     st.session_state.kandidat_db = {}
 if 'leaderboard' not in st.session_state:
@@ -127,8 +129,22 @@ with tab1:
                 except Exception as e:
                     st.error(f"Ett fel uppstod med Kandidat #{nummer}. Felmeddelande: {e}")
                 
+                finally:
+                    # Radera filen från Googles servrar direkt efter analys
+                    try:
+                        if 'uppladdad_pdf' in locals():
+                            client.files.delete(name=uppladdad_pdf.name)
+                    except:
+                        pass
+                
                 # När kandidaten är klar, uppdatera mätaren
                 progress_bar.progress(nummer / totalt_antal)
+                
+                # Liten paus för att undvika rate limit-kraschar från Google
+                time.sleep(2)
+            
+            # Radera den lokala mappen på Streamlit-servern
+            shutil.rmtree(temp_dir, ignore_errors=True)
             
             status_text.markdown("**✅ Alla kandidater färdiganalyserade!**")
             
