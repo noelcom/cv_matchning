@@ -5,6 +5,7 @@ import os
 import tempfile
 import shutil
 import time
+import io  # <-- Ny import för att hantera Excel-filer i minnet
 from google import genai
 from google.genai import types
 
@@ -34,8 +35,13 @@ def check_password():
 if check_password():
     st.title("🚀 Anonym CV-Matchning Pilot")
 
-    # 2. Inbakad API-nyckel (användaren behöver inte klistra in den)
-    api_key = st.secrets["GEMINI_API_KEY"]
+    # 2. Inbakad API-nyckel (hämtas dolt från Streamlit Secrets när den publiceras)
+    # Om du kör lokalt, se till att ha denna i din .streamlit/secrets.toml
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+    except KeyError:
+        # Fallback om secrets inte är uppsatt (byt INTE ut denna i klartext på GitHub!)
+        api_key = "KLISTRA_IN_NYCKELN_LOKALT_OM_DU_MÅSTE" 
 
     # 3. Databas i minnet
     if 'kandidat_db' not in st.session_state:
@@ -57,8 +63,8 @@ if check_password():
             st.caption("🔒 **Datasäkerhet & GDPR:** Detta är en MVP. Inga CV-filer sparas permanent på någon server – allt bearbetas enbart i stunden i tillfälligt minne. Datan skickas krypterat via API för analys. Använd gärna anonymiserade test-CV:n.")
             
         if st.button("🧠 Starta AI-Analys", type="primary"):
-            if not api_key:
-                st.error("⚠️ Ingen API-nyckel hittades!")
+            if not api_key or api_key == "KLISTRA_IN_NYCKELN_LOKALT_OM_DU_MÅSTE":
+                st.error("⚠️ Ingen giltig API-nyckel hittades i secrets!")
             elif not uppladdade_filer:
                 st.warning("⚠️ Du måste ladda upp minst ett CV!")
             elif not annons_text.strip():
@@ -169,10 +175,6 @@ if check_password():
                 
                 if st.session_state.leaderboard:
                     st.success("Analys klar! Byt till fliken 'Detaljer & Resultat' ovan för att se vinnarna.")
-                    df = pd.DataFrame(st.session_state.leaderboard)
-                    df = df.sort_values(by="Poäng", ascending=False).reset_index(drop=True)
-                    df.index += 1
-                    st.dataframe(df[["Kandidat", "Poäng"]], use_container_width=True)
 
     # --- FLIK 2: LEADERBOARD OCH DETALJER ---
     with tab2:
@@ -181,6 +183,43 @@ if check_password():
         if not st.session_state.leaderboard:
             st.info("Ingen data laddad än. Kör en analys i Flik 1 först!")
         else:
+            # --- EXPORT TILL EXCEL LÄGST UPP ---
+            st.info("💡 **Tips:** Ladda ner hela analysen innan du stänger sidan för att spara din data lokalt.")
+            
+            excel_data = []
+            for kand_id, data in st.session_state.kandidat_db.items():
+                excel_data.append({
+                    "Kandidat": kand_id,
+                    "Poäng": data.get("score", ""),
+                    "Års erfarenhet": data.get("ar_erfarenhet", ""),
+                    "Utbildningsmatch": data.get("utbildningsmatch", ""),
+                    "Nyckelkompetenser": data.get("nyckelkompetenser", ""),
+                    "Konkreta resultat": data.get("konkreta_resultat", ""),
+                    "Saknade krav": data.get("saknade_krav", ""),
+                    "AI Motivering": data.get("motivation", ""),
+                    "Källfil (Originaldokument)": data.get("original_namn", "")
+                })
+            
+            df_export = pd.DataFrame(excel_data)
+            df_export = df_export.sort_values(by="Poäng", ascending=False)
+            
+            # Konvertera Pandas DataFrame till Excel i minnet
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df_export.to_excel(writer, index=False, sheet_name='Resultat')
+            excel_bytes = output.getvalue()
+            
+            st.download_button(
+                label="📥 Ladda ner hela analysen (Excel)",
+                data=excel_bytes,
+                file_name="CV_Analys_Resultat.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary"
+            )
+            
+            st.divider()
+
+            # --- BEFINTLIG VISUELL PRESENTATION ---
             df = pd.DataFrame(st.session_state.leaderboard)
             df = df.sort_values(by="Poäng", ascending=False).reset_index(drop=True)
             df.index += 1
@@ -214,7 +253,7 @@ if check_password():
                     st.markdown("#### 💡 AI:ns Motivering")
                     st.info(data['motivation'])
                     
-                    # Knapp för att bryta anonymiteten
+                    # Knapp för att bryta anonymiteten (i stunden)
                     st.divider()
                     st.markdown("#### 🔓 Avslöja & Kontakta")
                     st.write("När du är redo att gå vidare med kandidaten kan du ladda ner originaldokumentet här.")
@@ -223,5 +262,5 @@ if check_password():
                         data=data['fil_data'],
                         file_name=data['original_namn'],
                         mime="application/pdf",
-                        type="primary"
+                        type="secondary"
                     )
