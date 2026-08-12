@@ -34,11 +34,8 @@ def check_password():
 if check_password():
     st.title("🚀 Anonym CV-Matchning Pilot")
 
-    # 2. Hantera API-nyckel i sidopanelen
-    with st.sidebar:
-        st.header("⚙️ Inställningar")
-        api_key = st.text_input("Klistra in din Google Gemini API-nyckel", type="password")
-        st.info("Nyckeln sparas inte när du stänger sidan. Det gör att appen kan delas utan att kosta dig pengar!")
+    # 2. Inbakad API-nyckel (användaren behöver inte klistra in den)
+    api_key = st.secrets["GEMINI_API_KEY"]
 
     # 3. Databas i minnet
     if 'kandidat_db' not in st.session_state:
@@ -61,7 +58,7 @@ if check_password():
             
         if st.button("🧠 Starta AI-Analys", type="primary"):
             if not api_key:
-                st.error("⚠️ Du måste lägga in din API-nyckel i sidopanelen (till vänster) först!")
+                st.error("⚠️ Ingen API-nyckel hittades!")
             elif not uppladdade_filer:
                 st.warning("⚠️ Du måste ladda upp minst ett CV!")
             elif not annons_text.strip():
