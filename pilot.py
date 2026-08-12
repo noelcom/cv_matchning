@@ -9,8 +9,8 @@ from google import genai
 from google.genai import types
 
 # 1. Design och inställningar för webbsidan
-st.set_page_config(page_title="CV-Matchning", page_icon="🚀", layout="wide")
-st.title("🚀 Anonym CV-Matchning")
+st.set_page_config(page_title="CV-Matchning-Pilot", page_icon="🚀", layout="wide")
+st.title("🚀 Anonym CV-Matchning-Pilot")
 
 # 2. Hantera API-nyckel i sidopanelen
 with st.sidebar:
