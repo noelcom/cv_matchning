@@ -168,19 +168,46 @@ if check_password():
                             ]
                         )
                         
-                        # NY SÄKERHETSSPÄRR: Dynamisk text-extrahering även här
+                        # Extrahera råtexten säkert från svarsblocken
                         raw_json = ""
                         for block in svar.content:
                             if hasattr(block, 'text'):
                                 raw_json = block.text
                                 break
                                 
-                        if "```json" in raw_json:
-                            raw_json = raw_json.split("```json")[1].split("```")[0]
-                        elif "```" in raw_json:
-                            raw_json = raw_json.split("```")[1].split("```")[0]
+                        # --- SÄKERHETSSPÄRR: JSON KROCKKUDDEN ---
+                        try:
+                            # Standardrensning ifall AI:n la till markdown-taggar
+                            cleaned_json = raw_json
+                            if "```json" in cleaned_json:
+                                cleaned_json = cleaned_json.split("```json")[1].split("```")[0]
+                            elif "```" in cleaned_json:
+                                cleaned_json = cleaned_json.split("```")[1].split("```")[0]
+                                
+                            resultat = json.loads(cleaned_json.strip())
                             
-                        resultat = json.loads(raw_json.strip())
+                        except json.JSONDecodeError:
+                            # Om Claude formaterade dåligt, gör en rå text-skivning mellan { och }
+                            try:
+                                start_idx = raw_json.find('{')
+                                end_idx = raw_json.rfind('}') + 1
+                                if start_idx != -1 and end_idx != 0:
+                                    fallback_json = raw_json[start_idx:end_idx]
+                                    resultat = json.loads(fallback_json)
+                                else:
+                                    raise ValueError("Inga måsvingar hittades i svaret.")
+                            except Exception:
+                                # Absoluta sista utvägen: Nödsvar så koden inte kraschar och fortsätter till nästa CV
+                                resultat = {
+                                    "score": 0,
+                                    "ar_erfarenhet": 0,
+                                    "utbildningsmatch": "Systemfel vid tolkning",
+                                    "konkreta_resultat": "Kunde inte läsa AI:ns format",
+                                    "nyckelkompetenser": "Kunde inte läsa",
+                                    "saknade_krav": "N/A",
+                                    "motivation": "AI:n genererade ett ogiltigt format som systemet inte kunde tolka automatiskt."
+                                }
+                        # --- SLUT PÅ KROCKKUDDEN ---
                         
                         # Sparar originalfilen för senare nedladdning och koppling
                         resultat["original_namn"] = fil.name
