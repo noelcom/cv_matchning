@@ -122,14 +122,19 @@ if check_password():
                         """
                         
                         tvatt_svar = client.messages.create(
-                            model="claude-sonnet-5",
+                            model="claude-3-5-sonnet-20240620",
                             max_tokens=2500,
                             messages=[
                                 {"role": "user", "content": tvatt_prompt}
                             ]
                         )
                         
-                        tvattad_cv_text = tvatt_svar.content[0].text
+                        # NY SÄKERHETSSPÄRR: Extrahera text dynamiskt för att undvika krasch på ThinkingBlocks
+                        tvattad_cv_text = ""
+                        for block in tvatt_svar.content:
+                            if hasattr(block, 'text'):
+                                tvattad_cv_text = block.text
+                                break
                         
                         # --- STEG 2: BEDÖMNINGEN (RANKING) ---
                         status_text.markdown(f"**⏳ Bedömer kompetens för Kandidat {nummer} av {totalt_antal}...**")
@@ -155,7 +160,7 @@ if check_password():
 
                         # Skicka till Claude
                         svar = client.messages.create(
-                            model="claude-sonnet-5",
+                            model="claude-3-5-sonnet-20240620",
                             max_tokens=1000,
                             system=system_instruktion,
                             messages=[
@@ -163,8 +168,13 @@ if check_password():
                             ]
                         )
                         
-                        # Rensa och parsa JSON-svaret
-                        raw_json = svar.content[0].text
+                        # NY SÄKERHETSSPÄRR: Dynamisk text-extrahering även här
+                        raw_json = ""
+                        for block in svar.content:
+                            if hasattr(block, 'text'):
+                                raw_json = block.text
+                                break
+                                
                         if "```json" in raw_json:
                             raw_json = raw_json.split("```json")[1].split("```")[0]
                         elif "```" in raw_json:
@@ -180,10 +190,8 @@ if check_password():
                         
                         # --- SÄKERHETSSPÄRR 2: Robust hämtning med .get() och strikt typsäkring ---
                         try:
-                            # Tvingar värdet till ett äkta heltal (int) för att garantera rätt sortering
                             saker_score = int(resultat.get("score", 0))
                         except (ValueError, TypeError):
-                            # Fångar upp om AI:n svarar med text (t.ex. "Åttiofem") eller None
                             saker_score = 0
                             
                         saker_kompetens = resultat.get("nyckelkompetenser", "Information saknas")
@@ -266,7 +274,6 @@ if check_password():
                     data = st.session_state.kandidat_db[vald_kandidat]
                     
                     st.subheader(f"Analys för {vald_kandidat}")
-                    # Säkerställer att vi visar ett värde även om något blev fel vid extrahering
                     st.metric(label="AI Matchningspoäng", value=f"{data.get('score', 0)} / 100")
                     
                     st.markdown("#### 📊 Erfarenhet & Utbildning")
