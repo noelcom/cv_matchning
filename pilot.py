@@ -55,7 +55,7 @@ if check_password():
             annons_text = st.text_area("Arbetsannons", height=250, placeholder="Klistra in texten från platsannonsen här...")
         with col2:
             uppladdade_filer = st.file_uploader("Ladda upp CV:n (.pdf)", type=["pdf"], accept_multiple_files=True)
-            st.caption("🔒 **Zero Data Retention:** Inga filer sparas på någon hårddisk. Texten extraheras direkt i arbetsminnet (RAM) och raderas sekunden analysen är klar.")
+            st.caption("🔒 **Säker datahantering:** Inga CV:n sparas på våra servrar. Vår AI-leverantör raderar all data automatiskt efter 30 dagar och vi garanterar att kandidaternas uppgifter **aldrig** används för att träna några AI-modeller.")
             
         if st.button("🧠 Starta AI-Analys", type="primary"):
             if not api_key:
