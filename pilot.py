@@ -125,9 +125,9 @@ if check_password():
                         }}
                         """
 
-                        # Skicka till Claude 3.5 Sonnet
+                        # Skicka till Claude Sonnet 5
                         svar = client.messages.create(
-                            model="claude-3-5-sonnet-latest",
+                            model="claude-sonnet-5",
                             max_tokens=1000,
                             temperature=0.1,
                             system=system_instruktion,
