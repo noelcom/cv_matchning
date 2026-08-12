@@ -1,13 +1,10 @@
 import streamlit as st
 import pandas as pd
 import json
-import os
-import tempfile
-import shutil
 import time
-import io  # <-- Ny import för att hantera Excel-filer i minnet
-from google import genai
-from google.genai import types
+import io
+import PyPDF2
+import anthropic
 
 # 1. Design och inställningar för webbsidan (Måste vara överst)
 st.set_page_config(page_title="CV-Matchning Pilot", page_icon="🚀", layout="wide")
@@ -35,13 +32,11 @@ def check_password():
 if check_password():
     st.title("🚀 Anonym CV-Matchning Pilot")
 
-    # 2. Inbakad API-nyckel (hämtas dolt från Streamlit Secrets när den publiceras)
-    # Om du kör lokalt, se till att ha denna i din .streamlit/secrets.toml
+    # 2. Inbakad API-nyckel (hämtas dolt från Streamlit Secrets)
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
+        api_key = st.secrets["ANTHROPIC_API_KEY"]
     except KeyError:
-        # Fallback om secrets inte är uppsatt (byt INTE ut denna i klartext på GitHub!)
-        api_key = "KLISTRA_IN_NYCKELN_LOKALT_OM_DU_MÅSTE" 
+        api_key = None 
 
     # 3. Databas i minnet
     if 'kandidat_db' not in st.session_state:
@@ -60,42 +55,38 @@ if check_password():
             annons_text = st.text_area("Arbetsannons", height=250, placeholder="Klistra in texten från platsannonsen här...")
         with col2:
             uppladdade_filer = st.file_uploader("Ladda upp CV:n (.pdf)", type=["pdf"], accept_multiple_files=True)
-            st.caption("🔒 **Datasäkerhet & GDPR:** Detta är en MVP. Inga CV-filer sparas permanent på någon server – allt bearbetas enbart i stunden i tillfälligt minne. Datan skickas krypterat via API för analys. Använd gärna anonymiserade test-CV:n.")
+            st.caption("🔒 **Zero Data Retention:** Inga filer sparas på någon hårddisk. Texten extraheras direkt i arbetsminnet (RAM) och raderas sekunden analysen är klar.")
             
         if st.button("🧠 Starta AI-Analys", type="primary"):
-            if not api_key or api_key == "KLISTRA_IN_NYCKELN_LOKALT_OM_DU_MÅSTE":
-                st.error("⚠️ Ingen giltig API-nyckel hittades i secrets!")
+            if not api_key:
+                st.error("⚠️ Ingen giltig Anthropic API-nyckel hittades i secrets!")
             elif not uppladdade_filer:
                 st.warning("⚠️ Du måste ladda upp minst ett CV!")
             elif not annons_text.strip():
                 st.warning("⚠️ Du måste klistra in en arbetsannons!")
             else:
-                client = genai.Client(api_key=api_key)
+                client = anthropic.Anthropic(api_key=api_key)
                 
                 # Den stenhårda och universella systeminstruktionen
-                instruktion = """
-                Du är en objektiv, extremt analytisk och fördomsfri AI-rekryterare. Ditt uppdrag är att revolutionera rekryteringsprocessen genom att leta efter *verklig* kompetens och relevant erfarenhet. Du är dock STENHÅRD och realistisk i din bedömning av ansvarsnivå och senioritet.
+                system_instruktion = """
+                Du är en objektiv, extremt analytisk och fördomsfri AI-rekryterare. Ditt uppdrag är att revolutionera rekryteringsprocessen genom att leta efter *verklig* kompetens och relevant erfarenhet. Du är STENHÅRD och realistisk i din bedömning av ansvarsnivå och senioritet.
 
                 DITT TILLVÄGAGÅNGSSÄTT:
-                1. Analysera ansvarsnivå: Stirra dig inte blind på att en bransch matchar. Om annonsen söker en ledare, chef eller specialist, och kandidaten enbart har praktik, assistentroller eller instegsjobb, ska poängen dras ner kraftigt.
-                2. Format-agnostisk: Ignorera CV:ts design och döm endast den faktiska datan.
-                3. Översättbara färdigheter: Värdera praktisk problemlösning, men respektera de hårda kraven.
+                1. Analysera ansvarsnivå: Stirra dig inte blind på att en bransch matchar. Om annonsen söker en ledare, chef eller specialist, och kandidaten enbart har praktik eller instegsjobb, ska poängen dras ner kraftigt.
+                2. Format-agnostisk: Ignorera CV:ts design.
+                3. Översättbara färdigheter: Värdera praktisk problemlösning, men respektera hårda krav.
 
                 STRIKT GDPR OCH ANONYMITET:
-                För att garantera en 100% fördomsfri process får du under INGA omständigheter extrahera eller hinta om:
-                - Namn, e-post, telefonnummer, adresser, ålder, kön, nationalitet eller länkar.
-                Kandidaten existerar för dig enbart som en renodlad kompetensprofil.
+                Extrahera aldrig namn, kontaktuppgifter, ålder, kön eller länkar.
 
                 BEDÖMNING OCH SCORING (0-100) - STRIKTA REGLER:
-                Du är en extremt kritisk bedömare. Du MÅSTE följa denna skala:
-                - 0-30: Långt ifrån kraven. Saknar avgörande erfarenhet (t.ex. en junior/praktikant som söker en ledarroll).
-                - 31-50: Uppfyller vissa grundkrav, men saknar rätt ansvarsnivå eller spetskompetens.
-                - 51-75: En stark kandidat som uppfyller de flesta krav och kan axla rollen med viss upplärning.
-                - 76-90: En extremt kvalificerad kandidat som överträffar kraven, har bevisad erfarenhet av exakt rätt ansvarsnivå och kan prestera från dag ett.
-                - 91-100: En perfekt, exceptionell matchning (väldigt ovanligt).
+                - 0-30: Långt ifrån kraven.
+                - 31-50: Uppfyller vissa grundkrav, men saknar rätt ansvarsnivå.
+                - 51-75: En stark kandidat som uppfyller de flesta krav.
+                - 76-90: En extremt kvalificerad kandidat som överträffar kraven.
+                - 91-100: En perfekt, exceptionell matchning.
                 """
                 
-                temp_dir = tempfile.mkdtemp()
                 st.session_state.leaderboard = [] 
                 st.session_state.kandidat_db = {}
                 
@@ -105,46 +96,56 @@ if check_password():
                 status_text = st.empty()
                 
                 for nummer, fil in enumerate(uppladdade_filer, 1):
-                    # Uppdatera texten för användaren
                     status_text.markdown(f"**⏳ Analyserar kandidat {nummer} av {totalt_antal}...**")
-                    
-                    # 1. Döljer filnamnet i gränssnittet
                     anonymt_id = f"Kandidat #{nummer}"
                     
-                    # 2. Ger filen ett säkert namn i bakgrunden för att undvika kraschar (åäö)
-                    safe_filename = f"cv_dokument_{nummer}.pdf"
-                    temp_path = os.path.join(temp_dir, safe_filename)
-                    
-                    with open(temp_path, "wb") as f:
-                        f.write(fil.getbuffer())
-                    
                     try:
-                        uppladdad_pdf = client.files.upload(file=temp_path)
-                        svar = client.models.generate_content(
-                            model='gemini-2.5-flash',
-                            contents=[instruktion, f"ARBETSANNONS:\n{annons_text}\n\nKANDIDATENS CV BIFOGAS.", uppladdad_pdf],
-                            config=types.GenerateContentConfig(
-                                temperature=0.2,
-                                response_mime_type="application/json",
-                                response_schema={
-                                    "type": "OBJECT",
-                                    "properties": {
-                                        "score": {"type": "INTEGER"},
-                                        "ar_erfarenhet": {"type": "INTEGER", "description": "Antal års relevant erfarenhet för rollen"},
-                                        "utbildningsmatch": {"type": "STRING", "description": "Matchar utbildningen annonsens krav?"},
-                                        "konkreta_resultat": {"type": "STRING", "description": "Vilka konkreta resultat eller projekt har kandidaten levererat?"},
-                                        "nyckelkompetenser": {"type": "STRING", "description": "Hårda färdigheter, mjukvaror och språk"},
-                                        "saknade_krav": {"type": "STRING", "description": "Vad saknar kandidaten baserat på annonsen? Var ärlig."},
-                                        "motivation": {"type": "STRING", "description": "Kort och rak motivering till poängen"}
-                                    },
-                                    "required": ["score", "ar_erfarenhet", "utbildningsmatch", "konkreta_resultat", "nyckelkompetenser", "saknade_krav", "motivation"]
-                                }
-                            )
+                        # Extrahera text från PDF direkt i minnet (Zero Data Retention)
+                        pdf_reader = PyPDF2.PdfReader(io.BytesIO(fil.getvalue()))
+                        cv_text = ""
+                        for page in pdf_reader.pages:
+                            cv_text += page.extract_text() + "\n"
+                            
+                        prompt = f"""
+                        ARBETSANNONS:
+                        {annons_text}
+                        
+                        KANDIDATENS CV:
+                        {cv_text}
+                        
+                        Din uppgift är att bedöma kandidaten. Du MÅSTE svara enbart med ett rent JSON-objekt exakt enligt denna struktur. Inkludera ingen annan text före eller efter JSON-koden.
+                        {{
+                            "score": [Heltal 0-100],
+                            "ar_erfarenhet": [Heltal],
+                            "utbildningsmatch": "[Kort text]",
+                            "konkreta_resultat": "[Kort text]",
+                            "nyckelkompetenser": "[Kort text]",
+                            "saknade_krav": "[Kort text om gapet]",
+                            "motivation": "[Din stenhårda motivering]"
+                        }}
+                        """
+
+                        # Skicka till Claude 3.5 Sonnet
+                        svar = client.messages.create(
+                            model="claude-3-5-sonnet-latest",
+                            max_tokens=1000,
+                            temperature=0.1,
+                            system=system_instruktion,
+                            messages=[
+                                {"role": "user", "content": prompt}
+                            ]
                         )
                         
-                        resultat = json.loads(svar.text)
+                        # Rensa och parsa JSON-svaret
+                        raw_json = svar.content[0].text
+                        if "```json" in raw_json:
+                            raw_json = raw_json.split("```json")[1].split("```")[0]
+                        elif "```" in raw_json:
+                            raw_json = raw_json.split("```")[1].split("```")[0]
+                            
+                        resultat = json.loads(raw_json.strip())
                         
-                        # Sparar originalfilen för senare nedladdning
+                        # Sparar originalfilen för senare nedladdning och koppling
                         resultat["original_namn"] = fil.name
                         resultat["fil_data"] = fil.getvalue() 
                         
@@ -154,22 +155,10 @@ if check_password():
                     except Exception as e:
                         st.error(f"Ett fel uppstod med Kandidat #{nummer}. Felmeddelande: {e}")
                     
-                    finally:
-                        # Radera filen från Googles servrar direkt efter analys
-                        try:
-                            if 'uppladdad_pdf' in locals():
-                                client.files.delete(name=uppladdad_pdf.name)
-                        except:
-                            pass
-                    
-                    # När kandidaten är klar, uppdatera mätaren
                     progress_bar.progress(nummer / totalt_antal)
                     
-                    # Liten paus för att undvika rate limit-kraschar från Google
-                    time.sleep(2)
-                
-                # Radera den lokala mappen på Streamlit-servern
-                shutil.rmtree(temp_dir, ignore_errors=True)
+                    # Farthållare för API:et (Vilar 5 sekunder för att aldrig slå i Tier 1 Rate Limits)
+                    time.sleep(5)
                 
                 status_text.markdown("**✅ Alla kandidater färdiganalyserade!**")
                 
@@ -183,7 +172,7 @@ if check_password():
         if not st.session_state.leaderboard:
             st.info("Ingen data laddad än. Kör en analys i Flik 1 först!")
         else:
-            # --- EXPORT TILL EXCEL LÄGST UPP ---
+            # --- EXPORT TILL EXCEL ---
             st.info("💡 **Tips:** Ladda ner hela analysen innan du stänger sidan för att spara din data lokalt.")
             
             excel_data = []
@@ -203,7 +192,6 @@ if check_password():
             df_export = pd.DataFrame(excel_data)
             df_export = df_export.sort_values(by="Poäng", ascending=False)
             
-            # Konvertera Pandas DataFrame till Excel i minnet
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 df_export.to_excel(writer, index=False, sheet_name='Resultat')
@@ -219,7 +207,7 @@ if check_password():
             
             st.divider()
 
-            # --- BEFINTLIG VISUELL PRESENTATION ---
+            # --- VISUELL PRESENTATION ---
             df = pd.DataFrame(st.session_state.leaderboard)
             df = df.sort_values(by="Poäng", ascending=False).reset_index(drop=True)
             df.index += 1
@@ -253,7 +241,6 @@ if check_password():
                     st.markdown("#### 💡 AI:ns Motivering")
                     st.info(data['motivation'])
                     
-                    # Knapp för att bryta anonymiteten (i stunden)
                     st.divider()
                     st.markdown("#### 🔓 Avslöja & Kontakta")
                     st.write("När du är redo att gå vidare med kandidaten kan du ladda ner originaldokumentet här.")
