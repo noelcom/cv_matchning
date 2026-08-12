@@ -129,7 +129,6 @@ if check_password():
                         svar = client.messages.create(
                             model="claude-sonnet-5",
                             max_tokens=1000,
-                            temperature=0.1,
                             system=system_instruktion,
                             messages=[
                                 {"role": "user", "content": prompt}
