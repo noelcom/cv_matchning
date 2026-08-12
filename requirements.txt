@@ -2,3 +2,5 @@ streamlit
 pandas
 google-genai
 openpyxl
+anthropic
+PyPDF2
