@@ -138,7 +138,7 @@ if check_password():
 
                         svar = client.messages.create(
                             model="claude-sonnet-5",
-                            max_tokens=1000,
+                            max_tokens=2000,
                             system=[
                                 {
                                     "type": "text", 
