@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import json
-import time
 import io
 import PyPDF2
 import anthropic
+import concurrent.futures
 
 # 1. Design och inställningar för webbsidan (Måste vara överst)
 st.set_page_config(page_title="CV-Matchning Pilot", page_icon="🚀", layout="wide")
@@ -32,7 +32,7 @@ def check_password():
 if check_password():
     st.title("🚀 Anonym CV-Matchning Pilot")
 
-    # 2. Inbakad API-nyckel (hämtas dolt från Streamlit Secrets)
+    # 2. Inbakad API-nyckel
     try:
         api_key = st.secrets["ANTHROPIC_API_KEY"]
     except KeyError:
@@ -67,7 +67,6 @@ if check_password():
             else:
                 client = anthropic.Anthropic(api_key=api_key)
                 
-                # Den stenhårda och universella systeminstruktionen
                 system_instruktion = """
                 Du är en objektiv, extremt analytisk och fördomsfri AI-rekryterare. Ditt uppdrag är att revolutionera rekryteringsprocessen genom att leta efter *verklig* kompetens och relevant erfarenhet. Du är STENHÅRD och realistisk i din bedömning av ansvarsnivå och senioritet.
 
@@ -89,29 +88,23 @@ if check_password():
                 
                 st.session_state.leaderboard = [] 
                 st.session_state.kandidat_db = {}
-                
-                # Visuell feedback: Progress bar
                 totalt_antal = len(uppladdade_filer)
+                
+                # --- VISUELL FEEDBACK (Återinförd och förbättrad) ---
                 progress_bar = st.progress(0)
                 status_text = st.empty()
+                status_text.markdown(f"**⏳ Startar analys av {totalt_antal} CV:n...**")
                 
-                for nummer, fil in enumerate(uppladdade_filer, 1):
+                def analysera_cv(nummer, fil, totalt_antal):
                     anonymt_id = f"Kandidat #{nummer}"
-                    
                     try:
-                        # Extrahera text från PDF direkt i minnet (Zero Data Retention)
                         pdf_reader = PyPDF2.PdfReader(io.BytesIO(fil.getvalue()))
-                        cv_text = ""
-                        for page in pdf_reader.pages:
-                            cv_text += page.extract_text() + "\n"
+                        cv_text = "".join([page.extract_text() + "\n" for page in pdf_reader.pages])
                         
-                        # --- SÄKERHETSSPÄRR 1: Kontrollera tom text (t.ex. inskannad bild) ---
                         if not cv_text.strip():
                             raise ValueError("Kunde inte läsa någon text från filen. Är CV:t en inskannad bild?")
                             
-                        # --- STEG 1: TVÄTTMASKINEN (ANONYMISERING) ---
-                        status_text.markdown(f"**⏳ Tvättar och anonymiserar Kandidat {nummer} av {totalt_antal}...**")
-                        
+                        # STEG 1: TVÄTTMASKINEN
                         tvatt_prompt = f"""
                         Du är en strikt dataskydds-assistent. Din ENDA uppgift är att ta nedanstående CV-text och ta bort ALL personligt identifierbar information för att garantera en fördomsfri bedömning.
                         Byt ut alla namn, e-postadresser, telefonnummer, fysiska adresser, personnummer, ålder, LinkedIn-länkar och pronomen (han/hon) mot "[BORTTAGET]".
@@ -124,30 +117,15 @@ if check_password():
                         tvatt_svar = client.messages.create(
                             model="claude-sonnet-5",
                             max_tokens=2500,
-                            messages=[
-                                {"role": "user", "content": tvatt_prompt}
-                            ]
+                            messages=[{"role": "user", "content": tvatt_prompt}]
                         )
                         
-                        # NY SÄKERHETSSPÄRR: Extrahera text dynamiskt för att undvika krasch på ThinkingBlocks
-                        tvattad_cv_text = ""
-                        for block in tvatt_svar.content:
-                            if hasattr(block, 'text'):
-                                tvattad_cv_text = block.text
-                                break
+                        tvattad_cv_text = next((block.text for block in tvatt_svar.content if hasattr(block, 'text')), "")
                         
-                        # --- STEG 2: BEDÖMNINGEN (RANKING) ---
-                        status_text.markdown(f"**⏳ Bedömer kompetens för Kandidat {nummer} av {totalt_antal}...**")
-                        
-                        bedomning_prompt = f"""
-                        ARBETSANNONS:
-                        {annons_text}
-                        
-                        KANDIDATENS TVÄTTADE CV:
-                        {tvattad_cv_text}
-                        
+                        # STEG 2: BEDÖMNINGEN (Med Prompt Caching)
+                        json_instruktion = """
                         Din uppgift är att bedöma kandidaten. Du MÅSTE svara enbart med ett rent JSON-objekt exakt enligt denna struktur. Inkludera ingen annan text före eller efter JSON-koden.
-                        {{
+                        {
                             "score": [Heltal 0-100],
                             "ar_erfarenhet": [Heltal],
                             "utbildningsmatch": "[Kort text]",
@@ -155,29 +133,40 @@ if check_password():
                             "nyckelkompetenser": "[Kort text]",
                             "saknade_krav": "[Kort text om gapet]",
                             "motivation": "[Din stenhårda motivering]"
-                        }}
+                        }
                         """
 
-                        # Skicka till Claude
                         svar = client.messages.create(
                             model="claude-sonnet-5",
                             max_tokens=1000,
-                            system=system_instruktion,
+                            system=[
+                                {
+                                    "type": "text", 
+                                    "text": system_instruktion, 
+                                    "cache_control": {"type": "ephemeral"}
+                                }
+                            ],
                             messages=[
-                                {"role": "user", "content": bedomning_prompt}
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        {
+                                            "type": "text",
+                                            "text": f"ARBETSANNONS:\n{annons_text}",
+                                            "cache_control": {"type": "ephemeral"}
+                                        },
+                                        {
+                                            "type": "text",
+                                            "text": f"\n\nKANDIDATENS TVÄTTADE CV:\n{tvattad_cv_text}\n\n{json_instruktion}"
+                                        }
+                                    ]
+                                }
                             ]
                         )
                         
-                        # Extrahera råtexten säkert från svarsblocken
-                        raw_json = ""
-                        for block in svar.content:
-                            if hasattr(block, 'text'):
-                                raw_json = block.text
-                                break
+                        raw_json = next((block.text for block in svar.content if hasattr(block, 'text')), "")
                                 
-                        # --- SÄKERHETSSPÄRR: JSON KROCKKUDDEN ---
                         try:
-                            # Standardrensning ifall AI:n la till markdown-taggar
                             cleaned_json = raw_json
                             if "```json" in cleaned_json:
                                 cleaned_json = cleaned_json.split("```json")[1].split("```")[0]
@@ -187,35 +176,23 @@ if check_password():
                             resultat = json.loads(cleaned_json.strip())
                             
                         except json.JSONDecodeError:
-                            # Om Claude formaterade dåligt, gör en rå text-skivning mellan { och }
                             try:
                                 start_idx = raw_json.find('{')
                                 end_idx = raw_json.rfind('}') + 1
                                 if start_idx != -1 and end_idx != 0:
-                                    fallback_json = raw_json[start_idx:end_idx]
-                                    resultat = json.loads(fallback_json)
+                                    resultat = json.loads(raw_json[start_idx:end_idx])
                                 else:
                                     raise ValueError("Inga måsvingar hittades i svaret.")
                             except Exception:
-                                # Absoluta sista utvägen: Nödsvar så koden inte kraschar och fortsätter till nästa CV
                                 resultat = {
-                                    "score": 0,
-                                    "ar_erfarenhet": 0,
-                                    "utbildningsmatch": "Systemfel vid tolkning",
-                                    "konkreta_resultat": "Kunde inte läsa AI:ns format",
-                                    "nyckelkompetenser": "Kunde inte läsa",
-                                    "saknade_krav": "N/A",
-                                    "motivation": "AI:n genererade ett ogiltigt format som systemet inte kunde tolka automatiskt."
+                                    "score": 0, "ar_erfarenhet": 0, "utbildningsmatch": "Systemfel vid tolkning",
+                                    "konkreta_resultat": "Kunde inte läsa AI:ns format", "nyckelkompetenser": "Kunde inte läsa",
+                                    "saknade_krav": "N/A", "motivation": "AI:n genererade ett ogiltigt format."
                                 }
-                        # --- SLUT PÅ KROCKKUDDEN ---
                         
-                        # Sparar originalfilen för senare nedladdning och koppling
                         resultat["original_namn"] = fil.name
                         resultat["fil_data"] = fil.getvalue() 
                         
-                        st.session_state.kandidat_db[anonymt_id] = resultat
-                        
-                        # --- SÄKERHETSSPÄRR 2: Robust hämtning med .get() och strikt typsäkring ---
                         try:
                             saker_score = int(resultat.get("score", 0))
                         except (ValueError, TypeError):
@@ -223,34 +200,45 @@ if check_password():
                             
                         saker_kompetens = resultat.get("nyckelkompetenser", "Information saknas")
                         
-                        st.session_state.leaderboard.append({
-                            "Kandidat": anonymt_id, 
-                            "Poäng": saker_score, 
-                            "Nyckelkompetenser": saker_kompetens
-                        })
+                        return anonymt_id, resultat, saker_score, saker_kompetens, None
                         
                     except Exception as e:
-                        # --- SÄKERHETSSPÄRR 3: Tydlig felhantering utan krasch ---
-                        st.error(f"⚠️ Systemet hoppade över Kandidat #{nummer} ({fil.name}) på grund av ett fel: {e}")
-                    
-                    progress_bar.progress(nummer / totalt_antal)
-                    
-                    # Farthållare för API:et (Vilar 5 sekunder för att undvika Rate Limits)
-                    time.sleep(5)
+                        return anonymt_id, None, 0, "", str(e)
                 
-                status_text.markdown("**✅ Alla kandidater färdiganalyserade och poängsatta helt anonymt!**")
+                # --- TRÅDAD EXEKVERING MED MAX_WORKERS ---
+                avklarade = 0
+                with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+                    futures = [executor.submit(analysera_cv, i, f, totalt_antal) for i, f in enumerate(uppladdade_filer, 1)]
+                    
+                    for future in concurrent.futures.as_completed(futures):
+                        anonymt_id, resultat, score, kompetens, felmeddelande = future.result()
+                        
+                        # Uppdatera progress bar dynamiskt för varje färdigt CV
+                        avklarade += 1
+                        progress_bar.progress(avklarade / totalt_antal)
+                        status_text.markdown(f"**⏳ Har analyserat {avklarade} av {totalt_antal} CV:n...**")
+                        
+                        if felmeddelande:
+                            st.error(f"⚠️ Systemet hoppade över {anonymt_id} på grund av ett fel: {felmeddelande}")
+                        else:
+                            st.session_state.kandidat_db[anonymt_id] = resultat
+                            st.session_state.leaderboard.append({
+                                "Kandidat": anonymt_id, 
+                                "Poäng": score, 
+                                "Nyckelkompetenser": kompetens
+                            })
                 
                 if st.session_state.leaderboard:
-                    st.success("Analys klar! Byt till fliken 'Detaljer & Resultat' ovan för att se vinnarna.")
+                    status_text.empty() # Rensar "Har analyserat X av Y..."-texten
+                    st.success("✅ Alla kandidater färdiganalyserade och poängsatta helt anonymt! Byt till fliken 'Detaljer & Resultat' ovan för att se vinnarna.")
 
-    # --- FLIK 2: LEADERBOARD OCH DETALJER ---
+    # --- FLIK 2: LEADERBOARD OCH DETALJER (Oförändrad) ---
     with tab2:
         st.markdown("### 🏆 Leaderboard & Detaljerad AI-Analys")
         
         if not st.session_state.leaderboard:
             st.info("Ingen data laddad än. Kör en analys i Flik 1 först!")
         else:
-            # --- EXPORT TILL EXCEL ---
             st.info("💡 **Tips:** Ladda ner hela analysen innan du stänger sidan för att spara din data lokalt.")
             
             excel_data = []
@@ -285,7 +273,6 @@ if check_password():
             
             st.divider()
 
-            # --- VISUELL PRESENTATION ---
             df = pd.DataFrame(st.session_state.leaderboard)
             df = df.sort_values(by="Poäng", ascending=False).reset_index(drop=True)
             df.index += 1
