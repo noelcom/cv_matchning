@@ -115,7 +115,7 @@ if check_password():
                         """
                         
                         tvatt_svar = client.messages.create(
-                            model="claude-sonnet-5",
+                            model="claude-sonnet-5-5",
                             max_tokens=2500,
                             messages=[{"role": "user", "content": tvatt_prompt}]
                         )
@@ -137,7 +137,7 @@ if check_password():
                         """
 
                         svar = client.messages.create(
-                            model="claude-sonnet-5",
+                            model="claude-sonnet-5-5",
                             max_tokens=2000,
                             system=[
                                 {
