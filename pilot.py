@@ -58,11 +58,11 @@ if check_password():
             uppladdade_filer = st.file_uploader("Ladda upp CV:n (.pdf)", type=["pdf"], accept_multiple_files=True)
             st.caption(
     "🔒 **Datahantering:** Vi sparar inga CV:n i någon egen databas. "
-    "För analysen skickas CV-texten till vår AI-leverantör Anthropic, som enligt sina kommersiella "
-    "villkor inte tränar sina modeller på datan och som standard raderar den inom 30 dagar. "
-    "Personuppgifter maskeras automatiskt innan bedömningen så att kandidaterna rangordnas anonymt, "
+    "För analysen skickas CV-texten till vår AI-leverantör Anthropic. Enligt deras kommersiella avtal (DPA) "
+    "används kunddata **aldrig** för att träna AI-modeller, och som standard sparas inte innehållet i analysen på deras servrar. "
+    "Personuppgifter maskeras av AI:n innan matchningen så att rangordningen blir fördomsfri, "
     "men maskeringen är automatisk och inte ofelbar. "
-    "Identiteten avslöjas först när du själv laddar ner Excel-filen eller original-CV:t. "
+    "Identiteten avslöjas först när du själv laddar ner resultatet. "
     "Poängen är ett beslutsstöd, och urvalet ska alltid göras av en människa."
 )
             
