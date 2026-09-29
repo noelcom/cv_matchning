@@ -55,7 +55,15 @@ if check_password():
             annons_text = st.text_area("Arbetsannons", height=250, placeholder="Klistra in texten från platsannonsen här...")
         with col2:
             uppladdade_filer = st.file_uploader("Ladda upp CV:n (.pdf)", type=["pdf"], accept_multiple_files=True)
-            st.caption("🔒 **Säker datahantering:** Inga CV:n sparas på våra servrar. Vår AI-leverantör raderar all data automatiskt efter 30 dagar och vi garanterar att kandidaternas uppgifter **aldrig** används för att träna några AI-modeller.")
+            st.caption(
+    "🔒 **Datahantering:** Vi sparar inga CV:n i någon egen databas. "
+    "För analysen skickas CV-texten till vår AI-leverantör Anthropic, som enligt sina kommersiella "
+    "villkor inte tränar sina modeller på datan och som standard raderar den inom 30 dagar. "
+    "Personuppgifter maskeras automatiskt innan bedömningen så att kandidaterna rangordnas anonymt, "
+    "men maskeringen är automatisk och inte ofelbar. "
+    "Identiteten avslöjas först när du själv laddar ner Excel-filen eller original-CV:t. "
+    "Poängen är ett beslutsstöd, och urvalet ska alltid göras av en människa."
+)
             
         if st.button("🧠 Starta AI-Analys", type="primary"):
             if not api_key:
