@@ -12,7 +12,8 @@ st.set_page_config(page_title="CV-Matchning Pilot", page_icon="🚀", layout="wi
 # --- LÖSENORDSSKYDD START ---
 def check_password():
     def password_entered():
-        if st.session_state["password"] == "pilot2026": 
+        # Hämta lösenordet från secrets istället för att ha det i klartext
+        if st.session_state["password"] == st.secrets["APP_PASSWORD"]: 
             st.session_state["password_correct"] = True
             del st.session_state["password"]
         else:
