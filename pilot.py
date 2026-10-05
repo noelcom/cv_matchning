@@ -5,6 +5,7 @@ import io
 import PyPDF2
 import anthropic
 import concurrent.futures
+import os
 
 # 1. Design och inställningar för webbsidan (Måste vara överst)
 st.set_page_config(page_title="CV-Matchning Pilot", page_icon="🚀", layout="wide")
@@ -13,7 +14,7 @@ st.set_page_config(page_title="CV-Matchning Pilot", page_icon="🚀", layout="wi
 def check_password():
     def password_entered():
         # Hämta lösenordet från secrets istället för att ha det i klartext
-        if st.session_state["password"] == st.secrets["APP_PASSWORD"]: 
+        if st.session_state["password"] == os.environ.get("APP_PASSWORD"): 
             st.session_state["password_correct"] = True
             del st.session_state["password"]
         else:
@@ -34,10 +35,7 @@ if check_password():
     st.title("🚀 Anonym CV-Matchning Pilot")
 
     # 2. Inbakad API-nyckel
-    try:
-        api_key = st.secrets["ANTHROPIC_API_KEY"]
-    except KeyError:
-        api_key = None 
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
 
     # 3. Databas i minnet
     if 'kandidat_db' not in st.session_state:
@@ -72,7 +70,7 @@ if check_password():
             elif not uppladdade_filer:
                 st.warning("⚠️ Du måste ladda upp minst ett CV!")
             elif not annons_text.strip():
-                st.warning("⚠️ Du måste klistra in en arbetsannons!")
+                st.warning("⚠️️ Du måste klistra in en arbetsannons!")
             else:
                 client = anthropic.Anthropic(api_key=api_key)
                 
